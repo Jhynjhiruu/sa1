@@ -36,7 +36,7 @@ s32 read_page(u32 page) {
     do {
         if (IO_READ(MI_38_REG) & 0x02000000) {
             IO_WRITE(PI_48_REG, 0);
-            return 1;
+            return 2;
         }
     } while (IO_READ(PI_48_REG) & 0x80000000);
 
@@ -65,8 +65,9 @@ s32 find_next_good_block(u16 *out_block, u16 start_block) {
         s32 num_bad_bits = 0;
 
         ret = read_page(start_block * PAGES_PER_BLOCK);
-        if (ret) {
-            return ret;
+        if (ret == 2) {
+            // fatal error
+            return 1;
         }
 
         block_status = IO_READ(PI_10404_REG);
