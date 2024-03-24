@@ -1,0 +1,7 @@
+Required libraries from iQue Player SDK v1.5:
+    - libultra
+      - libultra_d.a for a USB build
+      - libultra.a for a no-USB build
+    - libfb.a
+    - libgcc.a
+    - libz.a

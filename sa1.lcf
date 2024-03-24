@@ -1,0 +1,78 @@
+OUTPUT_ARCH(mips)
+ENTRY(entrypoint)
+
+HEADER_SIZE = 0x1000;
+
+SECTIONS {
+    _RomSize = 0;
+    _RomStart = _RomSize;
+
+    PROVIDE(entrypoint = 0x80002000);
+
+    /* makerom */
+
+    _makeromSegmentRomStart = _RomSize;
+    ..makerom (entrypoint - HEADER_SIZE) : AT(_RomSize) {
+        build/src/makerom/rom_header.o(.data)
+    }
+    _RomSize += SIZEOF(..makerom);
+    _makeromSegmentRomEnd = _RomSize;
+    _makeromSegmentRomSize = ABSOLUTE(_makeromSegmentRomEnd - _makeromSegmentRomStart);
+
+
+    _RomSize += (HEADER_SIZE - SIZEOF(..makerom));
+
+    /* main */
+
+    _mainSegmentRomStart = _RomSize;
+
+    .text (entrypoint) : AT(_RomSize) {
+        _mainSegmentTextStart = .;
+
+        KEEP(build/src/entrypoint.o(*))
+        *(.text*)
+
+        _mainSegmentTextEnd = .;
+    }
+    _RomSize += SIZEOF(.text);
+
+    .data : {
+        _mainSegmentDataStart = .;
+
+        *(.data*)
+
+        _mainSegmentDataEnd = .;
+    }
+    _RomSize += SIZEOF(.data);
+
+    .rodata : {
+        _mainSegmentRoDataStart = .;
+
+        *(.rodata*)
+        
+        _mainSegmentRoDataEnd = .;
+    }
+    _RomSize += SIZEOF(.rodata);
+
+    .bss (NOLOAD) : {
+        __bss_start = .;
+
+        *(.bss*)
+        *(.scommon)
+        *(COMMON)
+
+        *(.buf)
+
+        __bss_end = .;
+        __bss_size = ABSOLUTE(__bss_end - __bss_start);
+    }
+
+    __sa1_end = .;
+
+    _mainSegmentRomEnd = _RomSize;
+    _mainSegmentRomSize = ABSOLUTE(_mainSegmentRomEnd - _mainSegmentRomStart);
+
+    /DISCARD/ : {
+        *(*);
+    }
+}
