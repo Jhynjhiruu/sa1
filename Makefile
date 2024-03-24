@@ -3,23 +3,25 @@ ELF := $(TARGET:.bin=.elf)
 
 DEBUG ?= 0
 
+PATCHED_SK ?= 1
+
 PYTHON ?= python3
 ELFPATCH := $(PYTHON) tools/elfpatch.py
 
-CROSS := mips64-elf-
+PREFIX := mips64-elf-
 
-COMPILER_PREFIX ?= $(N64_INST)/bin
-COMPILER_PATH ?= $(COMPILER_PREFIX)/$(CROSS)
+COMPILER_PATH ?= $(N64_INST)/bin
+CROSS ?= $(COMPILER_PATH)/$(PREFIX)
 
-CC := $(COMPILER_PATH)gcc
-AS := $(COMPILER_PATH)as
-LD := $(COMPILER_PATH)ld
-AR := $(COMPILER_PATH)ar
+CC := $(CROSS)gcc
+AS := $(CROSS)as
+LD := $(CROSS)ld
+AR := $(CROSS)ar
 
-RANLIB  := $(COMPILER_PATH)ranlib
-OBJCOPY := $(COMPILER_PATH)objcopy
-OBJDUMP := $(COMPILER_PATH)objdump
-STRIP   := $(COMPILER_PATH)strip
+RANLIB  := $(CROSS)ranlib
+OBJCOPY := $(CROSS)objcopy
+OBJDUMP := $(CROSS)objdump
+STRIP   := $(CROSS)strip
 
 #LIBGCC_DIR ?= $(dir $(shell $(CC) --print-libgcc-file-name))
 
@@ -34,18 +36,24 @@ LIB_DIR := build/lib
 
 ifeq ($(DEBUG),1)
 	LIBULTRA_VERSION := ultra_d
-	DEBUG_FLAG := -DDEBUG
+	DEBUG_FLAG := -DDEBUG -DMON
 else
 	LIBULTRA_VERSION := ultra
-	DEBUG_FLAG := -DNODEBUG
+	DEBUG_FLAG := -DNODEBUG -DNOMON
+endif
+
+ifeq ($(PATCHED_SK),1)
+	PATCHED_SK_FLAG := -DPATCHED_SK
+else
+	PATCHED_SK_FLAG :=
 endif
 
 INC := -I include -I include/PR -I include/sys -I src
 LIBDIRS := -L $(LIB_DIR)
 LIB := -lfb -l$(LIBULTRA_VERSION) -lgcc -lz
 LIBS := $(LIB_DIR)/libfb.a $(LIB_DIR)/lib$(LIBULTRA_VERSION).a $(LIB_DIR)/libgcc.a $(LIB_DIR)/libz.a
-CFLAGS := $(INC) -D_MIPS_SZLONG=32 -D_LANGUAGE_C -DBBPLAYER $(DEBUG_FLAG) -nostdinc -fno-builtin -fno-PIC -mno-abicalls -G 0 -mabi=32 -mgp32 -Wall -Wa,-Iinclude -march=vr4300 -mtune=vr4300 -ffunction-sections -fdata-sections -g -ffile-prefix-map="$(CURDIR)"= -Os -Wall -Werror -Wno-error=deprecated-declarations -fdiagnostics-color=always
-ASFLAGS := $(INC) -D_MIPS_SZLONG=32 -D_LANGUAGE_ASSEMBLY -DBBPLAYER $(DEBUG_FLAG) -nostdinc -fno-PIC -mno-abicalls -G 0 -mabi=32 -march=vr4300 -mtune=vr4300 -Wa,-Iinclude
+CFLAGS := $(INC) -D_MIPS_SZLONG=32 -D_LANGUAGE_C -DBBPLAYER $(DEBUG_FLAG) $(PATCHED_SK_FLAG) -nostdinc -fno-builtin -fno-PIC -mno-abicalls -G 0 -mabi=32 -mgp32 -Wall -Wa,-Iinclude -march=vr4300 -mtune=vr4300 -ffunction-sections -fdata-sections -g -ffile-prefix-map="$(CURDIR)"= -Os -Wall -Werror -Wno-error=deprecated-declarations -fdiagnostics-color=always
+ASFLAGS := $(INC) -D_MIPS_SZLONG=32 -D_LANGUAGE_ASSEMBLY -DBBPLAYER $(DEBUG_FLAG) $(PATCHED_SK_FLAG) -nostdinc -fno-PIC -mno-abicalls -G 0 -mabi=32 -march=vr4300 -mtune=vr4300 -Wa,-Iinclude
 
 $(shell mkdir -p build $(foreach dir,$(SRC_DIRS) lib,build/$(dir)))
 

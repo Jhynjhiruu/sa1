@@ -1,8 +1,11 @@
+#include <PR/bb_fs.h>
 #include <PR/os_internal.h>
+#include <bbtypes.h>
 #include <libfb.h>
 #include <macros.h>
 #include <ultra64.h>
 
+#include "blocks.h"
 #include "mon.h"
 #include "sa2.h"
 #include "stack.h"
@@ -100,13 +103,49 @@ void launch_sa2(SA2Entry addr, u32 entry_type) {
     addr(entry_type);
 }
 
+#ifdef PATCHED_SK
+s32 skMemCopy(void *dest, void *src, size_t len);
+
+void dump_v2(void) {
+    s32 fd;
+    OSBbFs fs;
+    u8 buf[BYTES_PER_BLOCK];
+
+    bzero(buf, sizeof(buf));
+
+    if (skMemCopy(buf, (void *)0xBFCA0000, sizeof(BbVirage2))) {
+        return;
+    }
+
+    if (osBbFInit(&fs) < 0) {
+        return;
+    }
+
+    osBbFDelete("v2.bin");
+    if (osBbFCreate("v2.bin", 1, sizeof(buf)) < 0) {
+        return;
+    }
+
+    fd = osBbFOpen("v2.bin", "w");
+    if (fd < 0) {
+        return;
+    }
+
+    osBbFWrite(fd, 0, buf, sizeof(buf));
+
+    osBbFClose(fd);
+}
+#endif
+
 void mainproc(void *argv) {
     s32 ret;
     SA2Entry sa2_addr;
+#ifdef MON
     s32 is_usb_host = FALSE;
     s32 is_attached = FALSE;
     s32 reset_count;
     u64 timeout;
+#endif
 
     osCreateViManager(OS_PRIORITY_VIMGR);
 
@@ -133,6 +172,10 @@ void mainproc(void *argv) {
     fbPrintStr(FB_WHITE, 3, 2, "Loader init");
     osWritebackDCacheAll();
 
+#ifdef PATCHED_SK
+    dump_v2();
+#endif
+
     osCreateThread(&buttonthread, 5, buttonproc, argv, buttonstack + sizeof(buttonstack), 15);
     osStartThread(&buttonthread);
 
@@ -140,6 +183,8 @@ void mainproc(void *argv) {
 #define USB_HOST (1)
 #define USB_DEVICE (2)
 #define USB_EITHER (USB_HOST | USB_DEVICE)
+
+#ifdef MON
 
     osBbUsbSetCtlrModes(0, USB_DISABLED);
     osBbUsbSetCtlrModes(1, USB_DEVICE);
@@ -164,6 +209,7 @@ void mainproc(void *argv) {
     }
 
     if ((is_attached == FALSE) || (is_usb_host == TRUE)) {
+#endif
         ret = load_sa2(&sa2_addr);
         if (ret) {
             fbPrintStr(FB_WHITE, 3, 12, "Load SA2 failed");
@@ -178,11 +224,13 @@ void mainproc(void *argv) {
             launch_sa2(sa2_addr, (u32)argv);
             osBbPowerOff();
         }
+#ifdef MON
     }
 
     // launch mon
     // ignore the return value
     mon();
+#endif
     osBbPowerOff();
 }
 

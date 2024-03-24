@@ -7,5 +7,11 @@ lib/*.a
 
 *.exe
 *.dll
+*.bak
+*.rec
+*.z64
+*.sys
+*.txt
+!lib/*.txt
 
 sa1.s
