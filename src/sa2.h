@@ -5,6 +5,6 @@
 
 typedef void (*SA2Entry)(u32);
 
-s32 load_sa2(SA2Entry *loadaddr);
+s32 load_sa2(SA2Entry *);
 
 #endif
