@@ -9,6 +9,7 @@ lib/*.a
 *.dll
 *.bak
 *.rec
+*.app
 *.z64
 *.sys
 *.txt
