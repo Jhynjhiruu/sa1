@@ -1,12 +1,17 @@
 TARGET := build/sa1.bin
 ELF := $(TARGET:.bin=.elf)
 
-DEBUG ?= 0
+DEBUG ?= 1
 
 PATCHED_SK ?= 1
 
 PYTHON ?= python3
 ELFPATCH := $(PYTHON) tools/elfpatch.py
+
+IQUECRYPT ?= iquecrypt
+KEY ?= 00000000000000000000000000000000
+IV ?= 00000000000000000000000000000000
+APP ?= bb00dead.app
 
 PREFIX := mips64-elf-
 
@@ -69,6 +74,9 @@ $(TARGET): $(ELF)
 	$(OBJCOPY) -O binary $< $(@:.bin=.tmp)
 	dd if=$(@:.bin=.tmp) of=$@ bs=16K conv=sync status=none
 	@$(RM) -r $(@:.bin=.tmp)
+
+app: $(TARGET)
+	$(IQUECRYPT) encrypt -app $(TARGET) -key $(KEY) -iv $(IV) -o $(APP)
 
 $(LIB_DIR)/lib%: lib/lib%.a
 	$(shell mkdir -p $@)

@@ -146,12 +146,9 @@ s32 decompress_sa2(SA2Entry *loadaddr, BbContentMetaDataHead *cmd, u16 *blocks, 
         return ret;
     }
 
-    fbPrintf(FB_WHITE, 3, 7, "Loaded SA2 blocks");
-    osWritebackDCacheAll();
-
     ret = expand_gzip((void *)compressed_buf, (void *)decompressed_buf, cmd->size, MAX_SKSA_BLOCKS * BYTES_PER_BLOCK);
     if (ret < 0) {
-        fbPrintf(FB_WHITE, 3, 8, "GZIP error: %d", ret);
+        fbPrintf(fbRed, 3, 8, "GZIP error: %d", ret);
         osWritebackDCacheAll();
 
         return 1;
@@ -159,17 +156,11 @@ s32 decompress_sa2(SA2Entry *loadaddr, BbContentMetaDataHead *cmd, u16 *blocks, 
 
     decompressed_size = ret;
 
-    fbPrintf(FB_WHITE, 3, 8, "Size: 0x%x", decompressed_size);
-    osWritebackDCacheAll();
-
     if (decompressed_size < N64_ROM_HEADER_SIZE) {
         return 1;
     }
 
     *loadaddr = *(SA2Entry *)(decompressed_buf + N64_ROM_HEADER_LOADADDR_OFFSET);
-
-    fbPrintf(FB_WHITE, 3, 9, "Addr: 0x%x", *loadaddr);
-    osWritebackDCacheAll();
 
     // disallow overwriting SA1, except do it properly
     if ((void *)K1_TO_K0(*loadaddr) < &__sa1_end) {
@@ -224,9 +215,6 @@ s32 load_sa2(SA2Entry *loadaddr) {
         return ret;
     }
 
-    fbPrintf(FB_WHITE, 3, 3, "SA1: 0x%x", sa1_start);
-    osWritebackDCacheAll();
-
     cmd = (BbContentMetaDataHead *)cmd_buf;
     sa1_num_blocks = cmd->size / BYTES_PER_BLOCK;
 
@@ -240,24 +228,15 @@ s32 load_sa2(SA2Entry *loadaddr) {
         sa2_cmd = block_link(IO_READ(PI_10400_REG));
     }
 
-    fbPrintf(FB_WHITE, 3, 4, "SA2 CMD: 0x%x", sa2_cmd);
-    osWritebackDCacheAll();
-
     ret = load_sa_ticket(&sa2_start, sa2_cmd);
     if (ret) {
         return ret;
     }
 
-    fbPrintf(FB_WHITE, 3, 5, "SA2: 0x%x", sa2_start);
-    osWritebackDCacheAll();
-
     sa2_num_blocks = cmd->size / BYTES_PER_BLOCK;
     if (sa2_num_blocks > (MAX_SKSA_BLOCKS - SK_SIZE - sa1_num_blocks - 2)) {
         return 1;
     }
-
-    fbPrintf(FB_WHITE, 3, 6, "SA2 blocks: 0x%x", sa2_num_blocks);
-    osWritebackDCacheAll();
 
     sa2_blocks[0] = sa2_start;
     for (u32 i = 0; i < sa2_num_blocks; i++) {

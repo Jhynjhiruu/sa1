@@ -6,6 +6,7 @@
 #include <ultra64.h>
 
 #include "blocks.h"
+#include "launch_app.h"
 #include "mon.h"
 #include "sa2.h"
 #include "stack.h"
@@ -20,6 +21,9 @@ s32 osBbUsbInit(void);
 u32 osBbUsbGetResetCount(s32);
 
 void __osBbDelay(u32);
+
+extern s32 __osBbIsBb;
+extern u32 __osBbHackFlags;
 
 u8 bootStack[STACK_SIZE] __attribute__((aligned(STACK_ALIGN)));
 
@@ -50,8 +54,58 @@ OSMesgQueue vi_mesg_queue;
 OSMesg vi_mesg_buf[1];
 OSMesg vi_retrace_mesg;
 
+OSMesgQueue controller_mesg_queue;
+OSContStatus controller_status[MAXCONTROLLERS];
+OSContPad controller_data[MAXCONTROLLERS];
+u16 last_frame_buttons[MAXCONTROLLERS];
+
 u8 stashed_state[0x100];
 #define STASH_ADDR ((void *)PHYS_TO_K1(0x04A80100))
+
+u32 controller_init(void) {
+    u8 attached;
+    u32 num_controllers = 0;
+
+    if (__osBbIsBb < 2) {
+        __osBbHackFlags = 1;
+    } else {
+        __osBbHackFlags = 0;
+    }
+
+    osCreateMesgQueue(&controller_mesg_queue, &vi_retrace_mesg, sizeof(vi_retrace_mesg) / sizeof(OSMesg));
+    osSetEventMesg(OS_EVENT_SI, &controller_mesg_queue, (OSMesg)0);
+
+    osContInit(&controller_mesg_queue, &attached, controller_status);
+
+    for (u32 i = 0; i < MAXCONTROLLERS; i++) {
+        if ((attached & (1 << i)) && ((controller_status[i].errno & CONT_NO_RESPONSE_ERROR) == 0)) {
+            num_controllers++;
+        }
+    }
+
+    return num_controllers;
+}
+
+u32 read_controllers(void) {
+    u16 status[MAXCONTROLLERS];
+    u16 change[MAXCONTROLLERS];
+
+    osRecvMesg(&controller_mesg_queue, &vi_retrace_mesg, OS_MESG_BLOCK);
+    osContGetReadData(controller_data);
+
+    for (u32 i = 0; i < MAXCONTROLLERS; i++) {
+        OSContPad *pad = &controller_data[i];
+        if (pad->errno == 0) {
+            status[i] = pad->button;
+            change[i] = status[i] ^ last_frame_buttons[i];
+            last_frame_buttons[i] = status[i];
+        }
+    }
+
+    return (status[0] << 16) | change[0];
+}
+
+#define PRESSED(key) ((change & (key)) && (status & (key)))
 
 void boot(u32 entry_type) {
     // clear button interrupt
@@ -140,6 +194,8 @@ void dump_v2(void) {
 void mainproc(void *argv) {
     s32 ret;
     SA2Entry sa2_addr;
+    u32 num_controllers;
+    u32 launch_which = 0;
 #ifdef MON
     s32 is_usb_host = FALSE;
     s32 is_attached = FALSE;
@@ -161,8 +217,6 @@ void mainproc(void *argv) {
     // currently crashes in this call when using debug libultra (required for USB) for some reason
     fbClear();
 
-    osBbSetErrorLed(0);
-
     osViBlack(0);
     osWritebackDCacheAll();
     osViSwapBuffer(framebuffer);
@@ -178,6 +232,45 @@ void mainproc(void *argv) {
 
     osCreateThread(&buttonthread, 5, buttonproc, argv, buttonstack + sizeof(buttonstack), 15);
     osStartThread(&buttonthread);
+
+    num_controllers = controller_init();
+
+    if (num_controllers == 0) {
+        // should never happen!
+        fbPrintStr(fbRed, 3, 3, "No controllers");
+        fbPrintStr(fbRed, 3, 4, "Launching SA2");
+        osWritebackDCacheAll();
+    } else {
+        fbPrintStr(FB_WHITE, 3, 3, "Press A to launch SA2");
+        fbPrintStr(FB_WHITE, 3, 4, "Press B to launch high app");
+        fbPrintStr(FB_WHITE, 3, 5, "Press Start to launch low app");
+        osWritebackDCacheAll();
+
+        while (TRUE) {
+            u32 cont_data;
+            u16 status, change;
+
+            osRecvMesg(&vi_mesg_queue, NULL, OS_MESG_BLOCK);
+            osContStartReadData(&controller_mesg_queue);
+
+            cont_data = read_controllers();
+
+            status = cont_data >> 16;
+            change = cont_data;
+
+            if (PRESSED(A_BUTTON)) {
+                // A button pressed
+                launch_which = 0;
+                break;
+            } else if (PRESSED(B_BUTTON)) {
+                launch_which = 1;
+                break;
+            } else if (PRESSED(START_BUTTON)) {
+                launch_which = 2;
+                break;
+            }
+        }
+    }
 
 #define USB_DISABLED (0)
 #define USB_HOST (1)
@@ -210,19 +303,29 @@ void mainproc(void *argv) {
 
     if ((is_attached == FALSE) || (is_usb_host == TRUE)) {
 #endif
-        ret = load_sa2(&sa2_addr);
-        if (ret) {
-            fbPrintStr(FB_WHITE, 3, 12, "Load SA2 failed");
-            osWritebackDCacheAll();
-        } else {
-            // launch SA2!
+        if (launch_which == 0) {
+            ret = load_sa2(&sa2_addr);
+            if (ret) {
+                fbPrintStr(FB_WHITE, 3, 12, "Load SA2 failed");
+                osWritebackDCacheAll();
+            } else {
+                // launch SA2!
 
-            bcopy(stashed_state, STASH_ADDR, sizeof(stashed_state));
+                bcopy(stashed_state, STASH_ADDR, sizeof(stashed_state));
 
-            osBbSetErrorLed(0);
+                osBbSetErrorLed(0);
 
-            launch_sa2(sa2_addr, (u32)argv);
-            osBbPowerOff();
+                launch_sa2(sa2_addr, (u32)argv);
+
+                fbPrintStr(fbRed, 3, 12, "Launch SA2 failed");
+                while (TRUE)
+                    ;
+                osBbPowerOff();
+            }
+        } else if (launch_which == 1) {
+            launch_app("00000000.app");
+        } else if (launch_which == 2) {
+            launch_app("btstrplo.app");
         }
 #ifdef MON
     }
@@ -231,6 +334,9 @@ void mainproc(void *argv) {
     // ignore the return value
     mon();
 #endif
+    fbPrintStr(fbRed, 3, 12, "Launch mon failed");
+    while (TRUE)
+        ;
     osBbPowerOff();
 }
 

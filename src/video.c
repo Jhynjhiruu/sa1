@@ -5,7 +5,7 @@
 
 void __osBbDelay(u32);
 
-u16 framebuffer[WIDTH * HEIGHT];
+u16 framebuffer[WIDTH * HEIGHT] __attribute__((aligned(FRAMEBUFFER_ALIGN)));
 
 #define TEST_VALUE (0x43210123)
 

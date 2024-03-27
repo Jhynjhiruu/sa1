@@ -12,6 +12,7 @@ lib/*.a
 *.app
 *.z64
 *.sys
+*.dat
 *.txt
 !lib/*.txt
 
