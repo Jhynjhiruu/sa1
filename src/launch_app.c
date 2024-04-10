@@ -90,6 +90,7 @@ void launch_app(const char *filename) {
     OSPiHandle *cart_handle;
 
     void *entrypoint;
+    void *load_addr;
 
     if (osBbFInit(&fs)) {
         return;
@@ -123,12 +124,13 @@ void launch_app(const char *filename) {
     IO_WRITE(PI_48_REG, 0x1F008BFF);
 
     entrypoint = *(void **)PHYS_TO_K1(PI_DOM1_ADDR2 + 8);
+    load_addr = entrypoint - 0x1000;
 
     dma_mesg.hdr.pri = OS_MESG_PRI_NORMAL;
     dma_mesg.hdr.retQueue = &dma_queue;
-    dma_mesg.dramAddr = entrypoint;
-    dma_mesg.devAddr = 0x1000;
-    dma_mesg.size = MIN(stat.size, 1024 * 1024);
+    dma_mesg.dramAddr = load_addr;
+    dma_mesg.devAddr = 0;
+    dma_mesg.size = MIN(stat.size, 1024 * 1024 + 0x1000);
     osEPiStartDma(cart_handle, &dma_mesg, OS_READ);
 
     osRecvMesg(&dma_queue, NULL, OS_MESG_BLOCK);
@@ -138,7 +140,7 @@ void launch_app(const char *filename) {
     osInvalICache((void *)K0BASE, 64 * 1024);
 
     osRomBase = (void *)PHYS_TO_K1(PI_DOM1_ADDR2);
-    osMemSize = 4 * 1024 * 1024;
+    osMemSize = 8 * 1024 * 1024;
     osTvType = OS_TV_NTSC;
 
     osBbSetErrorLed(0);

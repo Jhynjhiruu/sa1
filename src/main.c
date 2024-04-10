@@ -226,10 +226,6 @@ void mainproc(void *argv) {
     fbPrintStr(FB_WHITE, 3, 2, "Loader init");
     osWritebackDCacheAll();
 
-#ifdef PATCHED_SK
-    dump_v2();
-#endif
-
     osCreateThread(&buttonthread, 5, buttonproc, argv, buttonstack + sizeof(buttonstack), 15);
     osStartThread(&buttonthread);
 
@@ -244,6 +240,9 @@ void mainproc(void *argv) {
         fbPrintStr(FB_WHITE, 3, 3, "Press A to launch SA2");
         fbPrintStr(FB_WHITE, 3, 4, "Press B to launch high app");
         fbPrintStr(FB_WHITE, 3, 5, "Press Start to launch low app");
+#ifdef PATCHED_SK
+        fbPrintStr(FB_WHITE, 3, 6, "Press C left to dump V2");
+#endif
         osWritebackDCacheAll();
 
         while (TRUE) {
@@ -268,6 +267,10 @@ void mainproc(void *argv) {
             } else if (PRESSED(START_BUTTON)) {
                 launch_which = 2;
                 break;
+            } else if (PRESSED(L_CBUTTONS)) {
+#ifdef PATCHED_SK
+                dump_v2();
+#endif
             }
         }
     }

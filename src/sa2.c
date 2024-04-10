@@ -140,6 +140,7 @@ s32 load_sa2_blocks(BbContentMetaDataHead *cmd, u16 *blocks, u32 num_blocks, voi
 s32 decompress_sa2(SA2Entry *loadaddr, BbContentMetaDataHead *cmd, u16 *blocks, u32 num_blocks) {
     s32 ret;
     u32 decompressed_size;
+    void *adjusted_loadaddr;
 
     ret = load_sa2_blocks(cmd, blocks, num_blocks, compressed_buf);
     if (ret) {
@@ -161,17 +162,18 @@ s32 decompress_sa2(SA2Entry *loadaddr, BbContentMetaDataHead *cmd, u16 *blocks, 
     }
 
     *loadaddr = *(SA2Entry *)(decompressed_buf + N64_ROM_HEADER_LOADADDR_OFFSET);
+    adjusted_loadaddr = *loadaddr - N64_ROM_HEADER_SIZE;
 
     // disallow overwriting SA1, except do it properly
-    if ((void *)K1_TO_K0(*loadaddr) < &__sa1_end) {
+    if ((void *)K1_TO_K0(adjusted_loadaddr) < &__sa1_end) {
         return 1;
     }
 
-    if (K1_TO_K0(*loadaddr) >= RAM_END) {
+    if (K1_TO_K0(adjusted_loadaddr + decompressed_size) >= RAM_END) {
         return 1;
     }
 
-    bcopy(decompressed_buf + N64_ROM_HEADER_SIZE, *loadaddr, decompressed_size - N64_ROM_HEADER_SIZE);
+    bcopy(decompressed_buf, adjusted_loadaddr, decompressed_size);
 
     return 0;
 }

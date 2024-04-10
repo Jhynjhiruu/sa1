@@ -10,10 +10,12 @@ lib/*.a
 *.bak
 *.rec
 *.app
+*.aes
 *.z64
 *.sys
 *.dat
 *.txt
+*.cht
 !lib/*.txt
 
 sa1.s
