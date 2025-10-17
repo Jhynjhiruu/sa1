@@ -3,8 +3,6 @@ ELF := $(TARGET:.bin=.elf)
 
 DEBUG ?= 1
 
-PATCHED_SK ?= 1
-
 PYTHON ?= python3
 ELFPATCH := $(PYTHON) tools/elfpatch.py
 
@@ -41,22 +39,16 @@ LIB_DIR := build/lib
 
 ifeq ($(DEBUG),1)
 	LIBULTRA_VERSION := ultra_d
-	DEBUG_FLAG := -DDEBUG -DMON
+	DEBUG_FLAG := -DDEBUG
 else
 	LIBULTRA_VERSION := ultra
-	DEBUG_FLAG := -DNODEBUG -DNOMON
-endif
-
-ifeq ($(PATCHED_SK),1)
-	PATCHED_SK_FLAG := -DPATCHED_SK
-else
-	PATCHED_SK_FLAG :=
+	DEBUG_FLAG := -DNODEBUG
 endif
 
 INC := -I include -I include/PR -I include/sys -I src
 LIBDIRS := -L $(LIB_DIR)
-LIB := -lfb -l$(LIBULTRA_VERSION) -lgcc -lz
-LIBS := $(LIB_DIR)/libfb.a $(LIB_DIR)/lib$(LIBULTRA_VERSION).a $(LIB_DIR)/libgcc.a $(LIB_DIR)/libz.a
+LIB := -l$(LIBULTRA_VERSION) -lgcc -lz
+LIBS := $(LIB_DIR)/lib$(LIBULTRA_VERSION).a $(LIB_DIR)/libgcc.a $(LIB_DIR)/libz.a
 CFLAGS := $(INC) -D_MIPS_SZLONG=32 -D_LANGUAGE_C -DBBPLAYER $(DEBUG_FLAG) $(PATCHED_SK_FLAG) -nostdinc -fno-builtin -fno-PIC -mno-abicalls -G 0 -mabi=32 -mgp32 -Wall -Wa,-Iinclude -march=vr4300 -mtune=vr4300 -ffunction-sections -fdata-sections -g -ffile-prefix-map="$(CURDIR)"= -Os -Wall -Werror -Wno-error=deprecated-declarations -fdiagnostics-color=always
 ASFLAGS := $(INC) -D_MIPS_SZLONG=32 -D_LANGUAGE_ASSEMBLY -DBBPLAYER $(DEBUG_FLAG) $(PATCHED_SK_FLAG) -nostdinc -fno-PIC -mno-abicalls -G 0 -mabi=32 -march=vr4300 -mtune=vr4300 -Wa,-Iinclude
 

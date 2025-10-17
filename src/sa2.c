@@ -1,6 +1,5 @@
 #include <bbtypes.h>
 #include <gzip.h>
-#include <libfb.h>
 #include <macros.h>
 
 #include "blocks.h"
@@ -149,9 +148,6 @@ s32 decompress_sa2(SA2Entry *loadaddr, BbContentMetaDataHead *cmd, u16 *blocks, 
 
     ret = expand_gzip((void *)compressed_buf, (void *)decompressed_buf, cmd->size, MAX_SKSA_BLOCKS * BYTES_PER_BLOCK);
     if (ret < 0) {
-        fbPrintf(fbRed, 3, 8, "GZIP error: %d", ret);
-        osWritebackDCacheAll();
-
         return 1;
     }
 
